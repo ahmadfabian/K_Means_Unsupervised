@@ -6,6 +6,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.pyplot as plt
+from scipy.cluster.hierarchy import linkage, dendrogram
+from sklearn.cluster import AgglomerativeClustering
 
 # import data
 cereals = pd.read_csv('input/Cereals.csv')
@@ -83,10 +85,46 @@ for k in range(2, 21):
     wss[k] = kmeans_loop.inertia_
 
 #
-# %matplotlib notebook
 plt.figure(figsize=(15,8))
 plt.plot(list(wss.keys()),list(wss.values()) ,marker='o')
 plt.grid()
 plt.xlabel('Number of clusters')
 plt.ylabel('Total within sum of squares')
 plt.show()
+
+#
+best_kmeans = KMeans(n_clusters=9, random_state=1240)
+best_kmeans.fit(scaled_cereals)
+best_kmeans_labels = best_kmeans.predict(scaled_cereals)
+
+#
+kmeans_results = pd.DataFrame({"label":cereal_label,"kmeans_cluster":best_kmeans_labels})
+kmeans_results.head()
+
+#
+cereals = pd.read_csv("input/Cereals.csv")
+cereals['label'] = cereals['name']+ ' (' +cereals['shelf'].astype(str) + " - " + round(cereals['rating'],2).astype(str) + ')'
+cereals.drop(['name','shelf','rating'], axis=1, inplace=True)
+final_cluster_data = pd.merge(cereals, kmeans_results, on='label')
+final_cluster_data.head(10)
+
+#
+final_cluster_data.kmeans_cluster.value_counts()
+
+#
+analysis = final_cluster_data.groupby(['kmeans_cluster']).mean().reset_index()
+print(analysis)
+
+#
+linkage_matrix = linkage(scaled_cereals, method='ward',metric='euclidean')
+
+#
+dendrogram(linkage_matrix,labels=cereal_label.values)
+
+#
+agg_clust = AgglomerativeClustering(n_clusters=6, affinity='euclidean', linkage='ward')
+agg_clusters = agg_clust.fit_predict(scaled_cereals)
+agg_result = pd.DataFrame({"label":cereal_label,"agg_cluster":agg_clusters}).sort_values('agg_cluster')
+agg_result.head()
+
+#
